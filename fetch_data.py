@@ -78,7 +78,18 @@ def init_db(conn: sqlite3.Connection) -> None:
             light_sleep_seconds REAL,
             rem_sleep_seconds REAL,
             awake_sleep_seconds REAL,
-            sleep_score REAL
+            sleep_score REAL,
+            total_steps REAL,
+            step_goal REAL,
+            min_hr REAL,
+            max_hr REAL,
+            avg_stress REAL,
+            max_stress REAL,
+            body_battery_high REAL,
+            body_battery_low REAL,
+            body_battery_charged REAL,
+            body_battery_drained REAL,
+            total_calories REAL
         );
 
         CREATE TABLE IF NOT EXISTS hr_zones (
@@ -89,6 +100,15 @@ def init_db(conn: sqlite3.Connection) -> None:
         );
         """
     )
+    # 為既有資料庫補上後來新增的欄位（第一版沒有這些健康欄位）
+    existing_cols = {row[1] for row in conn.execute("PRAGMA table_info(daily_wellness)")}
+    for col in (
+        "total_steps", "step_goal", "min_hr", "max_hr", "avg_stress", "max_stress",
+        "body_battery_high", "body_battery_low", "body_battery_charged",
+        "body_battery_drained", "total_calories",
+    ):
+        if col not in existing_cols:
+            conn.execute(f"ALTER TABLE daily_wellness ADD COLUMN {col} REAL")
     conn.commit()
 
 
@@ -182,6 +202,34 @@ def fetch_hr_zones_for_new_activities(client: Garmin, conn: sqlite3.Connection, 
         time.sleep(WELLNESS_REQUEST_DELAY)
 
 
+# daily_wellness 新增的健康欄位 → Garmin get_stats 回傳的 key
+STATS_FIELD_MAP = {
+    "total_steps": "totalSteps",
+    "step_goal": "dailyStepGoal",
+    "min_hr": "minHeartRate",
+    "max_hr": "maxHeartRate",
+    "avg_stress": "averageStressLevel",
+    "max_stress": "maxStressLevel",
+    "body_battery_high": "bodyBatteryHighestValue",
+    "body_battery_low": "bodyBatteryLowestValue",
+    "body_battery_charged": "bodyBatteryChargedValue",
+    "body_battery_drained": "bodyBatteryDrainedValue",
+    "total_calories": "totalKilocalories",
+}
+
+
+def fetch_daily_stats(client: Garmin, iso: str) -> dict:
+    """抓某天的每日總覽（步數 / 壓力 / Body Battery / 每日 min-max 心率 / 卡路里）。"""
+    row = {col: None for col in STATS_FIELD_MAP}
+    try:
+        stats = client.get_stats(iso) or {}
+        for col, key in STATS_FIELD_MAP.items():
+            row[col] = stats.get(key)
+    except Exception as e:
+        print(f"  警告：{iso} 每日總覽（步數/壓力/BodyBattery）抓取失敗（{e}）")
+    return row
+
+
 def fetch_daily_wellness(client: Garmin, conn: sqlite3.Connection, start_date: date, end_date: date) -> None:
     existing = {
         row[0]
@@ -241,17 +289,24 @@ def fetch_daily_wellness(client: Garmin, conn: sqlite3.Connection, start_date: d
             "rem_sleep_seconds": rem_sleep,
             "awake_sleep_seconds": awake_sleep,
             "sleep_score": sleep_score,
+            **fetch_daily_stats(client, iso),
         }
         conn.execute(
             """
             INSERT OR REPLACE INTO daily_wellness (
                 date, resting_hr, hrv_last_night_avg, hrv_status,
                 sleep_seconds, deep_sleep_seconds, light_sleep_seconds,
-                rem_sleep_seconds, awake_sleep_seconds, sleep_score
+                rem_sleep_seconds, awake_sleep_seconds, sleep_score,
+                total_steps, step_goal, min_hr, max_hr, avg_stress, max_stress,
+                body_battery_high, body_battery_low, body_battery_charged,
+                body_battery_drained, total_calories
             ) VALUES (
                 :date, :resting_hr, :hrv_last_night_avg, :hrv_status,
                 :sleep_seconds, :deep_sleep_seconds, :light_sleep_seconds,
-                :rem_sleep_seconds, :awake_sleep_seconds, :sleep_score
+                :rem_sleep_seconds, :awake_sleep_seconds, :sleep_score,
+                :total_steps, :step_goal, :min_hr, :max_hr, :avg_stress, :max_stress,
+                :body_battery_high, :body_battery_low, :body_battery_charged,
+                :body_battery_drained, :total_calories
             )
             """,
             wellness_row,
