@@ -1,0 +1,7 @@
+garminconnect
+pandas
+streamlit
+python-dotenv
+plotly
+sqlalchemy
+psycopg2-binary
