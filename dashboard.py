@@ -118,6 +118,36 @@ def health_snapshot(wellness: pd.DataFrame):
     c5.metric("平均壓力", val(row.get("avg_stress")))
 
 
+HEALTH_TABLE_COLS = {
+    "date": "日期",
+    "total_steps": "步數",
+    "resting_hr": "靜息心率",
+    "min_hr": "最低心率",
+    "max_hr": "最高心率",
+    "sleep_score": "睡眠分數",
+    "avg_stress": "平均壓力",
+    "max_stress": "最高壓力",
+    "body_battery_high": "BB最高",
+    "body_battery_low": "BB最低",
+    "hrv_last_night_avg": "HRV",
+    "total_calories": "卡路里",
+}
+
+
+def health_table(wellness: pd.DataFrame):
+    df = wellness.copy().sort_values("date", ascending=False)
+    df["date"] = pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d")
+    df = df[[c for c in HEALTH_TABLE_COLS if c in df.columns]].rename(columns=HEALTH_TABLE_COLS)
+
+    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.download_button(
+        "下載 CSV",
+        df.to_csv(index=False).encode("utf-8-sig"),
+        file_name="每日健康數據.csv",
+        mime="text/csv",
+    )
+
+
 def health_page():
     st.title("每日健康總覽")
     _, wellness, _ = load_data()
@@ -138,6 +168,10 @@ def health_page():
         trend_line(wellness, "resting_hr", "靜息心率", "bpm")
         trend_line(wellness, "body_battery_high", "Body Battery 最高", "Body Battery")
         trend_line(wellness, "body_battery_low", "Body Battery 最低", "Body Battery")
+
+    st.header("每日數據清單")
+    st.caption("可點欄位標題排序，或按下方按鈕下載 CSV。")
+    health_table(wellness)
 
 
 # ---------- 跑步頁 ----------
