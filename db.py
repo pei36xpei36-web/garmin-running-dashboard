@@ -77,6 +77,22 @@ def load_tables():
     return activities, wellness, hr_zones
 
 
+def cloud_last_dates():
+    """從 Supabase 讀 activities / daily_wellness 的最新日期（給雲端增量抓用）。
+
+    回傳 (max_activity_date, max_wellness_date)（date 物件或 None）；未設定雲端時回傳 None。
+    """
+    engine = get_engine()
+    if engine is None:
+        return None
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        a = conn.execute(text("SELECT MAX(date) FROM activities")).scalar()
+        w = conn.execute(text("SELECT MAX(date) FROM daily_wellness")).scalar()
+    return a, w
+
+
 def upsert_rows(table: str, rows: list[dict]) -> int:
     """把 rows（list of dict）upsert 進 Supabase。沒設定雲端或沒資料時直接跳過。
 

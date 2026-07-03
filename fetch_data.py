@@ -334,17 +334,17 @@ def main():
 
     end_date = date.today()
     if args.update:
-        last_activity_date = conn.execute(
-            "SELECT MAX(date) FROM activities"
-        ).fetchone()[0]
-        last_wellness_date = conn.execute(
-            "SELECT MAX(date) FROM daily_wellness"
-        ).fetchone()[0]
-        candidates = [d for d in (last_activity_date, last_wellness_date) if d]
-        if candidates:
-            start_date = date.fromisoformat(min(candidates))
+        # 雲端環境（如 GitHub Actions）本機 SQLite 是全新的，改用 Supabase 判斷最後日期
+        cloud_dates = db.cloud_last_dates()
+        if cloud_dates is not None:
+            candidates = [d for d in cloud_dates if d]
         else:
-            start_date = end_date - timedelta(days=args.days)
+            candidates = []
+            for tbl in ("activities", "daily_wellness"):
+                v = conn.execute(f"SELECT MAX(date) FROM {tbl}").fetchone()[0]
+                if v:
+                    candidates.append(date.fromisoformat(v))
+        start_date = min(candidates) if candidates else end_date - timedelta(days=args.days)
     else:
         start_date = end_date - timedelta(days=args.days)
 

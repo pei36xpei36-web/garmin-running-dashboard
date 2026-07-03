@@ -1,0 +1,29 @@
+name: Daily Garmin Fetch
+
+on:
+  schedule:
+    # UTC 22:00 = 台灣時間 06:00，每天自動抓前一天的資料
+    - cron: "0 22 * * *"
+  workflow_dispatch: {}   # 也可到 Actions 頁面手動按「Run workflow」
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: 安裝套件
+        run: pip install -r requirements.txt
+
+      - name: 抓取最新資料到 Supabase
+        env:
+          GARMIN_EMAIL: ${{ secrets.GARMIN_EMAIL }}
+          GARMIN_PASSWORD: ${{ secrets.GARMIN_PASSWORD }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: python fetch_data.py --update
