@@ -127,8 +127,8 @@ HEALTH_TABLE_COLS = {
     "sleep_score": "睡眠分數",
     "avg_stress": "平均壓力",
     "max_stress": "最高壓力",
-    "body_battery_high": "BB最高",
-    "body_battery_low": "BB最低",
+    "body_battery_high": "Body Battery最高",
+    "body_battery_low": "Body Battery最低",
     "hrv_last_night_avg": "HRV",
     "total_calories": "卡路里",
 }
