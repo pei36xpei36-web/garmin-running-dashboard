@@ -50,15 +50,13 @@ def get_engine():
         return None
     if _engine is None:
         from sqlalchemy import create_engine
+        from sqlalchemy.engine.url import make_url
 
-        # Supabase URLs sometimes use +psycopg (psycopg3) driver notation;
-        # we ship psycopg2-binary, so remap to +psycopg2 when needed.
-        for old, new in (
-            ("postgresql+psycopg://", "postgresql+psycopg2://"),
-            ("postgres+psycopg://", "postgresql+psycopg2://"),
-        ):
-            url = url.replace(old, new)
-        _engine = create_engine(url, pool_pre_ping=True)
+        # Force psycopg2 regardless of what driver the URL specifies.
+        # SQLAlchemy 2.1 may default to psycopg3 for bare postgresql:// URLs,
+        # but we only ship psycopg2-binary.
+        u = make_url(url).set(drivername="postgresql+psycopg2")
+        _engine = create_engine(u, pool_pre_ping=True)
     return _engine
 
 
